@@ -9,9 +9,11 @@ app.whenReady().then(() => {
     width: 800,
     height: 600,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    },
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      enableRemoteModule: false,
+      nodeIntegration: false
+    }
   });
 
   mainWindow.loadFile('index.html');
@@ -20,11 +22,20 @@ app.whenReady().then(() => {
 ipcMain.handle('open-file', async () => {
   const { filePaths } = await dialog.showOpenDialog({
     properties: ['openFile'],
-    filters: [{ name: 'JSON Files', extensions: ['json'] }],
+    filters: [
+      { name: 'Supported Files', extensions: ['json', 'txt', 'csv', 'xml'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
   });
 
   if (filePaths.length > 0) {
-    return fs.readFileSync(filePaths[0], 'utf-8');
-  }
+    let rawContent = fs.readFileSync(filePaths[0], 'utf-8'); // Ensure UTF-8 encoding
+    rawContent = rawContent.replace(/\uFEFF/g, ''); // Remove BOM characters
+    console.log("File Content:", rawContent); // Debugging - log file content
+    return {
+        content: rawContent,
+        extension: path.extname(filePaths[0]).toLowerCase()
+    };
+}
   return null;
 });

@@ -37,27 +37,58 @@
 
 
     <script>
-
-        const { ipcRenderer } = require('electron');
-
-        async function loadJsonFile() {
-            const fileContent = await ipcRenderer.invoke('open-file');
-            if (fileContent) {
-                document.getElementById('jsonInput').value = fileContent;
-                formatJson();
-            }
+        function fixJson(input) {
+            return input.replace(/([{,])(\s*)([A-Za-z0-9_]+)(\s*):/g, '$1"$3":'); // Ensure keys are quoted
         }
 
         function formatJson() {
             try {
-                const input = document.getElementById('jsonInput').value;
+                let input = document.getElementById('jsonInput').value.trim();
+                input = input.replace(/\uFEFF/g, ''); // Remove BOM
+
+                // Auto-fix missing quotes in JSON keys
+                input = fixJson(input);
+                console.log("Fixed JSON:", input); // Debugging - check fixed JSON
+
                 const parsedJson = JSON.parse(input);
                 document.getElementById('jsonOutput').innerText = JSON.stringify(parsedJson, null, 4);
             } catch (error) {
-                document.getElementById('jsonOutput').innerText = 'Invalid JSON';
+                console.error("JSON Parsing Error:", error);
+                document.getElementById('jsonOutput').innerText = '❌ Invalid JSON: ' + error.message;
+            }
+        }
+
+
+
+        async function loadJsonFile() {
+            const fileData = await window.electron.openFile();
+
+            if (fileData) {
+                const { content, extension } = fileData;
+                let formattedJson = '';
+
+                try {
+                    if (extension === '.json') {
+                        formattedJson = JSON.stringify(JSON.parse(content), null, 4);
+                    } else if (extension === '.txt') {
+                        formattedJson = JSON.stringify({ text: content }, null, 4);
+                    } else if (extension === '.csv') {
+                        formattedJson = csvToJson(content);
+                    } else if (extension === '.xml') {
+                        formattedJson = xmlToJson(content);
+                    } else {
+                        formattedJson = JSON.stringify({ raw: content }, null, 4);
+                    }
+
+                    document.getElementById('jsonInput').value = content;
+                    document.getElementById('jsonOutput').innerText = formattedJson;
+                } catch (error) {
+                    document.getElementById('jsonOutput').innerText = 'Error processing file';
+                }
             }
         }
     </script>
+
 </body>
 
 </html>
